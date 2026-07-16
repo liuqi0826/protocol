@@ -1,0 +1,130 @@
+package protocol
+
+import (
+	"os"
+	"strings"
+)
+
+const (
+	GO          = 0
+	CSHARP      = 1
+	C           = 2
+	CPLUSPLUS   = 3
+	TYPE_SCRIPT = 4
+	JAVA_SCRIPT = 5
+	GD_SCRIPT   = 6
+)
+
+var index uint16 = 1
+
+type Class struct {
+	Name       string
+	Attributes []*Attribute
+	Raw        string
+	Hash       string
+}
+type Attribute struct {
+	Name  string
+	Type  string
+	Label string
+}
+
+type ProtocolExporter struct {
+	PackageName string
+	Classes     []*Class
+}
+
+func (this *ProtocolExporter) Load(path string) (err error) {
+	var data []byte
+	data, err = os.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	var lines = strings.Split(string(data), "\n")
+
+	//预处理
+	for idx, line := range lines {
+		lines[idx] = strings.ReplaceAll(line, "interface{}", "any")
+	}
+	for idx, line := range lines {
+		lines[idx] = strings.ReplaceAll(line, "*", "")
+	}
+
+	//检测包名
+	for _, line := range lines {
+		if strings.Index(line, "package") > -1 {
+			var words = strings.Fields(line)
+			this.PackageName = words[1]
+		}
+	}
+
+	//记录所有类
+	var index int
+	this.Classes = make([]*Class, 0)
+	for index < len(lines) {
+		if strings.Index(lines[index], "type") > -1 && strings.Index(lines[index], "struct") > -1 && strings.Index(lines[index], "{") > -1 {
+			var class = &Class{}
+			for {
+				if strings.Index(lines[index], "{") > -1 {
+					var words = strings.Fields(lines[index])
+					class.Name = words[1]
+					class.Raw += lines[index] + "\n"
+				} else if strings.Index(lines[index], "}") > -1 {
+					this.Classes = append(this.Classes, class)
+					break
+				} else {
+					var words = strings.Fields(lines[index])
+					class.Attributes = append(class.Attributes, &Attribute{
+						Name:  words[0],
+						Type:  words[1],
+						Label: words[2],
+					})
+				}
+				index++
+			}
+		}
+		index++
+	}
+
+	return
+}
+func (this *ProtocolExporter) Export(path string, language int) (err error) {
+	var code string
+	switch language {
+	case GO:
+		code = this.codingToGolang()
+	case CSHARP:
+		code = this.codingToCSharp()
+	case C:
+	case CPLUSPLUS:
+	case TYPE_SCRIPT:
+	case JAVA_SCRIPT:
+	case GD_SCRIPT:
+		files := this.codingToGDScriptFiles()
+		for fname, content := range files {
+			fpath := path
+			if strings.HasSuffix(fpath, ".gd") {
+				fpath = fpath[:len(fpath)-3]
+			}
+			if !strings.HasSuffix(fpath, "/") && !strings.HasSuffix(fpath, "\\") {
+				fpath += "/"
+			}
+			os.WriteFile(fpath+fname, []byte(content), 0777)
+		}
+		return
+	}
+
+	os.WriteFile(path, []byte(code), 0777)
+	return
+}
+
+func getValueNameFromLable(s string) (n string) {
+	var l = strings.Index(s, ":")
+	if l > -1 {
+		l += 2
+	}
+	var r = len(s) - 2
+	n = s[l:r]
+	return
+}

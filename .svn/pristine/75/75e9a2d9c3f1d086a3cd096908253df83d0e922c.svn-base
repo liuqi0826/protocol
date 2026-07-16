@@ -1,0 +1,178 @@
+package main
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
+)
+
+const (
+	BINARY = "binary"
+	JSON   = "json"
+)
+
+type ClassA struct {
+	A int8     `json:"a"`
+	B uint8    `json:"b"`
+	C int16    `json:"c"`
+	D uint16   `json:"d"`
+	E int32    `json:"e"`
+	F uint32   `json:"f"`
+	G int64    `json:"g"`
+	H uint64   `json:"h"`
+	I float32  `json:"i"`
+	J float64  `json:"j"`
+	K bool     `json:"k"`
+	L byte     `json:"l"`
+	M string   `json:"m"`
+	N []int8   `json:"n"`
+	O []string `json:"o"`
+	Q ClassB   `json:"q"`
+	R []ClassB `json:"r"`
+}
+
+func (this *ClassA) Encode(target string) (data []byte) {
+	switch target {
+	case "json":
+		data = this.EncodeJson()
+	case "binary":
+		data = this.EncodeBinary()
+	}
+	return
+}
+func (this *ClassA) Decode(data []byte) {
+	var head = string(data[0])
+	if head == "{" {
+		this.DecodeJson(data)
+	} else {
+		this.DecodeBinary(data)
+	}
+}
+func (this *ClassA) EncodeBinary() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+
+	binary.Write(buffer, binary.LittleEndian, this.A)
+
+	var NCount = int32(len(this.N))
+	binary.Write(buffer, binary.LittleEndian, NCount)
+	for _, i := range this.N {
+		binary.Write(buffer, binary.LittleEndian, i)
+	}
+
+	var MByte = []byte(this.M)
+	var MLenght = int32(len(MByte))
+	binary.Write(buffer, binary.LittleEndian, MLenght)
+	binary.Write(buffer, binary.LittleEndian, MByte)
+
+	var OCount = int32(len(this.O))
+	binary.Write(buffer, binary.LittleEndian, OCount)
+	for _, i := range this.O {
+		var b = []byte(i)
+		var l = int32(len(b))
+		binary.Write(buffer, binary.LittleEndian, l)
+		binary.Write(buffer, binary.LittleEndian, b)
+	}
+
+	var QByte = this.Q.Encode()
+	var QLenght = int32(len(QByte))
+	binary.Write(buffer, binary.LittleEndian, QLenght)
+	binary.Write(buffer, binary.LittleEndian, QByte)
+
+	var RCount = int32(len(this.R))
+	binary.Write(buffer, binary.LittleEndian, RCount)
+	for _, obj := range this.R {
+		var dataByte = obj.Encode()
+		var dataLenght = int32(len(dataByte))
+		binary.Write(buffer, binary.LittleEndian, dataLenght)
+		binary.Write(buffer, binary.LittleEndian, dataByte)
+	}
+
+	data = buffer.Bytes()
+	return
+}
+func (this *ClassA) DecodeBinary(data []byte) {
+	var pointor int
+	var buffer *bytes.Buffer
+
+	buffer = bytes.NewBuffer(data[pointor : pointor+1])
+	binary.Read(buffer, binary.LittleEndian, &this.A)
+	pointor += 1
+
+	var NCount int
+	buffer = bytes.NewBuffer(data[pointor : pointor+4])
+	binary.Read(buffer, binary.LittleEndian, &NCount)
+	pointor += 4
+	for i := 0; i < NCount; i++ {
+		var value int8
+		buffer = bytes.NewBuffer(data[pointor : pointor+1])
+		binary.Read(buffer, binary.LittleEndian, &value)
+		this.N = append(this.N, value)
+		pointor += 1
+	}
+
+	var MLenght int
+	buffer = bytes.NewBuffer(data[pointor : pointor+4])
+	binary.Read(buffer, binary.LittleEndian, &MLenght)
+	pointor += 4
+	this.M = string(data[pointor : pointor+MLenght])
+	pointor += MLenght
+
+	var OCount int
+	buffer = bytes.NewBuffer(data[pointor : pointor+4])
+	binary.Read(buffer, binary.LittleEndian, &OCount)
+	pointor += 4
+	for i := 0; i < OCount; i++ {
+		var lenght int
+		buffer = bytes.NewBuffer(data[pointor : pointor+4])
+		binary.Read(buffer, binary.LittleEndian, &lenght)
+		pointor += 4
+		this.M = string(data[pointor : pointor+lenght])
+		pointor += lenght
+	}
+
+	var QLenght int
+	buffer = bytes.NewBuffer(data[pointor : pointor+4])
+	binary.Read(buffer, binary.LittleEndian, &QLenght)
+	pointor += 4
+	this.Q = ClassB{}
+	this.Q.Decode(data[pointor : pointor+QLenght])
+	pointor += QLenght
+
+	var RCount int
+	buffer = bytes.NewBuffer(data[pointor : pointor+4])
+	binary.Read(buffer, binary.LittleEndian, &RCount)
+	pointor += 4
+	for i := 0; i < RCount; i++ {
+		var lenght int
+		buffer = bytes.NewBuffer(data[pointor : pointor+4])
+		binary.Read(buffer, binary.LittleEndian, &lenght)
+		pointor += 4
+
+		var value = ClassB{}
+		value.Decode(data[pointor : pointor+lenght])
+		this.R = append(this.R, value)
+		pointor += lenght
+	}
+}
+func (this *ClassA) EncodeJson() (data []byte) {
+	data, _ = json.Marshal(this)
+	return
+}
+func (this *ClassA) DecodeJson(data []byte) {
+	json.Unmarshal(data, this)
+}
+
+type ClassB struct {
+	A interface{} `json:"a"`
+}
+
+func (this *ClassB) Encode() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+	binary.Write(buffer, binary.LittleEndian, this.A)
+
+	data = buffer.Bytes()
+	return
+}
+func (this *ClassB) Decode(data []byte) {
+
+}

@@ -1,0 +1,326 @@
+package protocol
+		import (
+			"bytes"
+			"encoding/binary"
+			"encoding/json"
+		)
+		type ProtocolLogin struct {
+A int8 `json:"a"`
+B uint8 `json:"b"`
+C int16 `json:"c"`
+D uint16 `json:"d"`
+E int32 `json:"e"`
+F uint32 `json:"f"`
+G int64 `json:"g"`
+H uint64 `json:"h"`
+I float32 `json:"i"`
+J float64 `json:"j"`
+K bool `json:"k"`
+L byte `json:"l"`
+M string `json:"m"`
+N []int8 `json:"n"`
+O []string `json:"o"`
+Q Account `json:"q"`
+R []Account `json:"r"`
+}
+func (this *ProtocolLogin) Decode(data []byte) {
+	var head = string(data[0])
+	if head == "{" {
+		json.Unmarshal(data, this)
+	} else {
+	var pointer int
+	var buffer *bytes.Buffer
+	buffer = bytes.NewBuffer(data[pointer : pointer+1])
+	binary.Read(buffer, binary.LittleEndian, &this.A)
+	pointer += 1
+	buffer = bytes.NewBuffer(data[pointer : pointer+1])
+	binary.Read(buffer, binary.LittleEndian, &this.B)
+	pointer += 1
+	buffer = bytes.NewBuffer(data[pointer : pointer+2])
+	binary.Read(buffer, binary.LittleEndian, &this.C)
+	pointer += 2
+	buffer = bytes.NewBuffer(data[pointer : pointer+2])
+	binary.Read(buffer, binary.LittleEndian, &this.D)
+	pointer += 2
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &this.E)
+	pointer += 4
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &this.F)
+	pointer += 4
+	buffer = bytes.NewBuffer(data[pointer : pointer+8])
+	binary.Read(buffer, binary.LittleEndian, &this.G)
+	pointer += 8
+	buffer = bytes.NewBuffer(data[pointer : pointer+8])
+	binary.Read(buffer, binary.LittleEndian, &this.H)
+	pointer += 8
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &this.I)
+	pointer += 4
+	buffer = bytes.NewBuffer(data[pointer : pointer+8])
+	binary.Read(buffer, binary.LittleEndian, &this.J)
+	pointer += 8
+	buffer = bytes.NewBuffer(data[pointer : pointer+1])
+	binary.Read(buffer, binary.LittleEndian, &this.K)
+	pointer += 1
+	buffer = bytes.NewBuffer(data[pointer : pointer+1])
+	binary.Read(buffer, binary.LittleEndian, &this.L)
+	pointer += 1
+	var MLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &MLenght)
+	pointer += 4
+	this.M = string(data[pointer : pointer+int(MLenght)])
+	pointer += int(MLenght)
+	var NCount int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &NCount)
+	pointer += 4
+	for i := 0; i < int(NCount); i++ {
+	var value int8
+	buffer = bytes.NewBuffer(data[pointer : pointer+1])
+	binary.Read(buffer, binary.LittleEndian, &value)
+	this.N = append(this.N, value)
+	pointer += 1
+	}
+	var OCount int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &OCount)
+	pointer += 4
+	for i := 0; i < int(OCount); i++ {
+	var lenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &lenght)
+	pointer += 4
+	this.O = append(this.O, string(data[pointer : pointer+int(lenght)]))
+	pointer += int(lenght)
+	}
+	var QLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &QLenght)
+	pointer += 4
+	this.Q = Account{}
+	this.Q.Decode(data[pointer : pointer+int(QLenght)])
+	pointer += int(QLenght)
+	var RCount int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &RCount)
+	pointer += 4
+	for i := 0; i < int(RCount); i++ {
+	var lenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &lenght)
+	pointer += 4
+	var value = Account{}
+	value.Decode(data[pointer : pointer+int(lenght)])
+	this.R = append(this.R, value)
+	pointer += int(lenght)
+	}
+	}
+}
+func (this *ProtocolLogin) EncodeBinary() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+	binary.Write(buffer, binary.LittleEndian, this.A)
+	binary.Write(buffer, binary.LittleEndian, this.B)
+	binary.Write(buffer, binary.LittleEndian, this.C)
+	binary.Write(buffer, binary.LittleEndian, this.D)
+	binary.Write(buffer, binary.LittleEndian, this.E)
+	binary.Write(buffer, binary.LittleEndian, this.F)
+	binary.Write(buffer, binary.LittleEndian, this.G)
+	binary.Write(buffer, binary.LittleEndian, this.H)
+	binary.Write(buffer, binary.LittleEndian, this.I)
+	binary.Write(buffer, binary.LittleEndian, this.J)
+	binary.Write(buffer, binary.LittleEndian, this.K)
+	binary.Write(buffer, binary.LittleEndian, this.L)
+	var MByte = []byte(this.M)
+	var MLenght = int32(len(MByte))
+	binary.Write(buffer, binary.LittleEndian, MLenght)
+	binary.Write(buffer, binary.LittleEndian, MByte)
+	var NCount = int32(len(this.N))
+	binary.Write(buffer, binary.LittleEndian, NCount)
+	for _, i := range this.N {
+	binary.Write(buffer, binary.LittleEndian, i)
+	}
+	var OCount = int32(len(this.O))
+	binary.Write(buffer, binary.LittleEndian, OCount)
+	for _, i := range this.O {
+	var b = []byte(i)
+	var l = int32(len(b))
+	binary.Write(buffer, binary.LittleEndian, l)
+	binary.Write(buffer, binary.LittleEndian, b)
+	}
+	var QByte = this.Q.EncodeBinary()
+	var QLenght = int32(len(QByte))
+	binary.Write(buffer, binary.LittleEndian, QLenght)
+	binary.Write(buffer, binary.LittleEndian, QByte)
+	var RCount = int32(len(this.R))
+	binary.Write(buffer, binary.LittleEndian, RCount)
+	for _, i := range this.R {
+	var b = i.EncodeBinary()
+	var l = int32(len(b))
+	binary.Write(buffer, binary.LittleEndian, l)
+	binary.Write(buffer, binary.LittleEndian, b)
+	}
+	data = buffer.Bytes()
+	return
+}
+	func (this *ProtocolLogin) EncodeJson() (data []byte) {
+		data, _ = json.Marshal(this)
+		return
+	}
+type Account struct {
+Nickname string `json:"nickname"`
+Password string `json:"password"`
+}
+func (this *Account) Decode(data []byte) {
+	var head = string(data[0])
+	if head == "{" {
+		json.Unmarshal(data, this)
+	} else {
+	var pointer int
+	var buffer *bytes.Buffer
+	var NicknameLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &NicknameLenght)
+	pointer += 4
+	this.Nickname = string(data[pointer : pointer+int(NicknameLenght)])
+	pointer += int(NicknameLenght)
+	var PasswordLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &PasswordLenght)
+	pointer += 4
+	this.Password = string(data[pointer : pointer+int(PasswordLenght)])
+	pointer += int(PasswordLenght)
+	}
+}
+func (this *Account) EncodeBinary() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+	var NicknameByte = []byte(this.Nickname)
+	var NicknameLenght = int32(len(NicknameByte))
+	binary.Write(buffer, binary.LittleEndian, NicknameLenght)
+	binary.Write(buffer, binary.LittleEndian, NicknameByte)
+	var PasswordByte = []byte(this.Password)
+	var PasswordLenght = int32(len(PasswordByte))
+	binary.Write(buffer, binary.LittleEndian, PasswordLenght)
+	binary.Write(buffer, binary.LittleEndian, PasswordByte)
+	data = buffer.Bytes()
+	return
+}
+	func (this *Account) EncodeJson() (data []byte) {
+		data, _ = json.Marshal(this)
+		return
+	}
+type ProtocolServerLogin struct {
+ID string `json:"id"`
+Token string `json:"token"`
+}
+func (this *ProtocolServerLogin) Decode(data []byte) {
+	var head = string(data[0])
+	if head == "{" {
+		json.Unmarshal(data, this)
+	} else {
+	var pointer int
+	var buffer *bytes.Buffer
+	var IDLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &IDLenght)
+	pointer += 4
+	this.ID = string(data[pointer : pointer+int(IDLenght)])
+	pointer += int(IDLenght)
+	var TokenLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &TokenLenght)
+	pointer += 4
+	this.Token = string(data[pointer : pointer+int(TokenLenght)])
+	pointer += int(TokenLenght)
+	}
+}
+func (this *ProtocolServerLogin) EncodeBinary() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+	var IDByte = []byte(this.ID)
+	var IDLenght = int32(len(IDByte))
+	binary.Write(buffer, binary.LittleEndian, IDLenght)
+	binary.Write(buffer, binary.LittleEndian, IDByte)
+	var TokenByte = []byte(this.Token)
+	var TokenLenght = int32(len(TokenByte))
+	binary.Write(buffer, binary.LittleEndian, TokenLenght)
+	binary.Write(buffer, binary.LittleEndian, TokenByte)
+	data = buffer.Bytes()
+	return
+}
+	func (this *ProtocolServerLogin) EncodeJson() (data []byte) {
+		data, _ = json.Marshal(this)
+		return
+	}
+type ProtocolServerState struct {
+State uint16 `json:"state"`
+Value string `json:"value"`
+}
+func (this *ProtocolServerState) Decode(data []byte) {
+	var head = string(data[0])
+	if head == "{" {
+		json.Unmarshal(data, this)
+	} else {
+	var pointer int
+	var buffer *bytes.Buffer
+	buffer = bytes.NewBuffer(data[pointer : pointer+2])
+	binary.Read(buffer, binary.LittleEndian, &this.State)
+	pointer += 2
+	var ValueLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &ValueLenght)
+	pointer += 4
+	this.Value = string(data[pointer : pointer+int(ValueLenght)])
+	pointer += int(ValueLenght)
+	}
+}
+func (this *ProtocolServerState) EncodeBinary() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+	binary.Write(buffer, binary.LittleEndian, this.State)
+	var ValueByte = []byte(this.Value)
+	var ValueLenght = int32(len(ValueByte))
+	binary.Write(buffer, binary.LittleEndian, ValueLenght)
+	binary.Write(buffer, binary.LittleEndian, ValueByte)
+	data = buffer.Bytes()
+	return
+}
+	func (this *ProtocolServerState) EncodeJson() (data []byte) {
+		data, _ = json.Marshal(this)
+		return
+	}
+type ProtocolServerCommand struct {
+Command uint16 `json:"command"`
+Value string `json:"value"`
+}
+func (this *ProtocolServerCommand) Decode(data []byte) {
+	var head = string(data[0])
+	if head == "{" {
+		json.Unmarshal(data, this)
+	} else {
+	var pointer int
+	var buffer *bytes.Buffer
+	buffer = bytes.NewBuffer(data[pointer : pointer+2])
+	binary.Read(buffer, binary.LittleEndian, &this.Command)
+	pointer += 2
+	var ValueLenght int32
+	buffer = bytes.NewBuffer(data[pointer : pointer+4])
+	binary.Read(buffer, binary.LittleEndian, &ValueLenght)
+	pointer += 4
+	this.Value = string(data[pointer : pointer+int(ValueLenght)])
+	pointer += int(ValueLenght)
+	}
+}
+func (this *ProtocolServerCommand) EncodeBinary() (data []byte) {
+	var buffer = bytes.NewBuffer([]byte{})
+	binary.Write(buffer, binary.LittleEndian, this.Command)
+	var ValueByte = []byte(this.Value)
+	var ValueLenght = int32(len(ValueByte))
+	binary.Write(buffer, binary.LittleEndian, ValueLenght)
+	binary.Write(buffer, binary.LittleEndian, ValueByte)
+	data = buffer.Bytes()
+	return
+}
+	func (this *ProtocolServerCommand) EncodeJson() (data []byte) {
+		data, _ = json.Marshal(this)
+		return
+	}

@@ -1,0 +1,323 @@
+package protocol
+
+import (
+	"fmt"
+)
+
+func (this *ProtocolExporter) codingToGDScript() string {
+	var code string
+	for _, class := range this.Classes {
+		code += "class_name " + class.Name + "\n"
+		code += "extends RefCounted\n\n"
+		// 属性声明
+		for _, attr := range class.Attributes {
+			code += "var " + attr.Name + ": " + goTypeToGDS(attr.Type) + "\n"
+		}
+		code += "\nfunc _init():\n"
+		for _, attr := range class.Attributes {
+			code += "\t" + attr.Name + " = " + gdscriptDefaultValue(attr.Type) + "\n"
+		}
+		code += "\nfunc decode(data):\n"
+		code += "\tvar pointer = 0\n"
+		code += "\tvar json = JSON.new()\n"
+		code += "\tif json.parse(data.get_string_from_utf8()) == 0:\n"
+		code += "\t\tvar obj = json.data\n"
+		for _, attr := range class.Attributes {
+			code += "\t\t" + attr.Name + " = obj[\"" + attr.Name + "\"]\n"
+		}
+		code += "\t\treturn\n"
+		for _, attr := range class.Attributes {
+			code += gdscriptDecodeFixed(attr)
+		}
+		code += "\n"
+	}
+	return code
+}
+
+func (this *ProtocolExporter) codingToGDScriptFiles() map[string]string {
+	files := make(map[string]string)
+	for _, class := range this.Classes {
+		var code string
+		// class_name 必须在首行，extends 必须在第二行
+		code += "class_name " + class.Name + "\n"
+		code += "extends RefCounted\n"
+		// 收集本类用到的自定义类型（不包括数组类型）
+		customTypes := map[string]bool{}
+		for _, attr := range class.Attributes {
+			typeName := attr.Type
+			if isCustomType(typeName, this.Classes) && !isArrayType(typeName) {
+				customTypes[typeName] = true
+			} else if isArrayType(typeName) && isCustomType(typeName[2:], this.Classes) {
+				customTypes[typeName[2:]] = true
+			}
+		}
+		for t := range customTypes {
+			code += fmt.Sprintf("const %s = preload(\"%s.gd\")\n", t, t)
+		}
+		if len(customTypes) > 0 {
+			code += "\n"
+		}
+		for _, attr := range class.Attributes {
+			if isArrayType(attr.Type) && isCustomType(attr.Type[2:], this.Classes) {
+				code += "var " + attr.Name + ": Array[" + attr.Type[2:] + "]\n"
+			} else if isCustomType(attr.Type, this.Classes) {
+				code += "var " + attr.Name + ": " + attr.Type + "\n"
+			} else {
+				code += "var " + attr.Name + ": " + goTypeToGDS(attr.Type) + "\n"
+			}
+		}
+		code += "\nfunc _init():\n"
+		for _, attr := range class.Attributes {
+			if isCustomType(attr.Type, this.Classes) {
+				if isArrayType(attr.Type) {
+					code += "\t" + attr.Name + " = []\n"
+				} else {
+					code += "\t" + attr.Name + " = " + attr.Type + ".new()\n"
+				}
+			} else {
+				code += "\t" + attr.Name + " = " + gdscriptDefaultValue(attr.Type) + "\n"
+			}
+		}
+		code += "\nfunc decode(data):\n"
+		code += "\tvar pointer = 0\n"
+		code += "\tvar json = JSON.new()\n"
+		code += "\tif json.parse(data.get_string_from_utf8()) == 0:\n"
+		code += "\t\tvar obj = json.data\n"
+		for _, attr := range class.Attributes {
+			code += "\t\t" + attr.Name + " = obj[\"" + attr.Name + "\"]\n"
+		}
+		code += "\t\treturn\n"
+		for _, attr := range class.Attributes {
+			code += gdscriptDecodeFixed(attr)
+		}
+		// 添加EncodeJson函数
+		code += "\nfunc encode_json() -> String:\n"
+		code += "\tvar obj = {}\n"
+		for _, attr := range class.Attributes {
+			code += fmt.Sprintf("\tobj[\"%s\"] = %s\n", attr.Name, attr.Name)
+		}
+		code += "\treturn JSON.stringify(obj)\n"
+		// 添加EncodeBinary函数
+		code += "\nfunc encode_binary() -> PackedByteArray:\n"
+		code += "\tvar buffer = PackedByteArray()\n"
+		for _, attr := range class.Attributes {
+			code += gdscriptEncodeBinaryStrict(attr, this.Classes)
+		}
+		code += "\treturn buffer\n"
+		code += "\n"
+		files[class.Name+".gd"] = code
+	}
+	return files
+}
+
+// 类型映射
+func goTypeToGDS(goType string) string {
+	switch goType {
+	case "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
+		return "int"
+	case "float32", "float64":
+		return "float"
+	case "bool":
+		return "bool"
+	case "string":
+		return "String"
+	case "byte":
+		return "int"
+	default:
+		if len(goType) > 2 && goType[:2] == "[]" {
+			return "Array"
+		}
+		return goType // 自定义类型
+	}
+}
+
+// 默认值
+func gdscriptDefaultValue(goType string) string {
+	switch goType {
+	case "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
+		return "0"
+	case "float32", "float64":
+		return "0.0"
+	case "bool":
+		return "false"
+	case "string":
+		return "\"\""
+	case "byte":
+		return "0"
+	default:
+		if len(goType) > 2 && goType[:2] == "[]" {
+			return "[]"
+		}
+		return goType + ".new()" // 自定义类型
+	}
+}
+
+// 修正版解码代码片段
+func gdscriptDecodeFixed(attr *Attribute) string {
+	name := attr.Name
+	typeStr := attr.Type
+	var code string
+	switch typeStr {
+	case "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
+		code += "\t" + name + " = data.get_32(pointer)\n\tpointer += 4\n"
+	case "float32", "float64":
+		code += "\t" + name + " = data.get_float(pointer)\n\tpointer += 4\n"
+	case "bool":
+		code += "\t" + name + " = data[pointer] != 0\n\tpointer += 1\n"
+	case "byte":
+		code += "\t" + name + " = data[pointer]\n\tpointer += 1\n"
+	case "string":
+		code += "\tvar " + name + "_len = data.get_32(pointer)\n\tpointer += 4\n"
+		code += "\t" + name + " = data.slice(pointer, pointer + " + name + "_len).get_string_from_utf8()\n\tpointer += " + name + "_len\n"
+	default:
+		if len(typeStr) > 2 && typeStr[:2] == "[]" {
+			code += "\tvar " + name + "_count = data.get_32(pointer)\n\tpointer += 4\n"
+			code += "\t" + name + " = []\n"
+			code += "\tfor i in range(" + name + "_count):\n"
+			innerType := typeStr[2:]
+			switch innerType {
+			case "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
+				code += "\t\t" + name + ".append(data.get_32(pointer))\n\t\tpointer += 4\n"
+			case "float32", "float64":
+				code += "\t\t" + name + ".append(data.get_float(pointer))\n\t\tpointer += 4\n"
+			case "bool":
+				code += "\t\t" + name + ".append(data[pointer] != 0)\n\t\tpointer += 1\n"
+			case "byte":
+				code += "\t\t" + name + ".append(data[pointer])\n\t\tpointer += 1\n"
+			case "string":
+				code += "\t\tvar len = data.get_32(pointer)\n\t\tpointer += 4\n"
+				code += "\t\t" + name + ".append(data.slice(pointer, pointer + len).get_string_from_utf8())\n\t\tpointer += len\n"
+			default:
+				code += "\t\tvar len = data.get_32(pointer)\n\t\tpointer += 4\n"
+				code += "\t\tvar value = " + innerType + ".new()\n"
+				code += "\t\tvalue.decode(data.slice(pointer, pointer + len))\n"
+				code += "\t\t" + name + ".append(value)\n\t\tpointer += len\n"
+			}
+		} else {
+			code += "\tvar " + name + "_len = data.get_32(pointer)\n\tpointer += 4\n"
+			code += "\t" + name + " = " + typeStr + ".new()\n"
+			code += "\t" + name + ".decode(data.slice(pointer, pointer + " + name + "_len))\n\tpointer += " + name + "_len\n"
+		}
+	}
+	return code
+}
+
+// 判断是否为自定义类型
+func isCustomType(typeName string, classes []*Class) bool {
+	if isArrayType(typeName) {
+		typeName = typeName[2:]
+	}
+	switch typeName {
+	case "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64",
+		"float32", "float64", "bool", "string", "byte":
+		return false
+	case "Array", "String", "int", "float":
+		return false
+	}
+	for _, c := range classes {
+		if c.Name == typeName {
+			return true
+		}
+	}
+	return false
+}
+
+// 判断是否为数组类型
+func isArrayType(typeName string) bool {
+	return len(typeName) > 2 && typeName[:2] == "[]"
+}
+
+// 生成二进制编码代码片段，严格区分原始类型写入
+func gdscriptEncodeBinaryStrict(attr *Attribute, classes []*Class) string {
+	name := attr.Name
+	typeStr := attr.Type
+	var code string
+	if isArrayType(typeStr) && isCustomType(typeStr[2:], classes) {
+		code += "\tbuffer.resize(buffer.size() + 4)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s32(buffer.size() - 4, len(%s))\n", name)
+		code += fmt.Sprintf("\tfor v in %s:\n", name)
+		code += "\t\tvar v_bytes = v.encode_binary()\n"
+		code += "\t\tbuffer.resize(buffer.size() + 4)\n"
+		code += "\t\tbuffer.encode_s32(buffer.size() - 4, len(v_bytes))\n"
+		code += "\t\tbuffer.append_array(v_bytes)\n"
+		return code
+	}
+	if isCustomType(typeStr, classes) {
+		code += fmt.Sprintf("\tvar %s_bytes = %s.encode_binary()\n", name, name)
+		code += "\tbuffer.resize(buffer.size() + 4)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s32(buffer.size() - 4, len(%s_bytes))\n", name)
+		code += fmt.Sprintf("\tbuffer.append_array(%s_bytes)\n", name)
+		return code
+	}
+	switch typeStr {
+	case "int8":
+		code += "\tbuffer.resize(buffer.size() + 1)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s8(buffer.size() - 1, %s)\n", name)
+	case "uint8":
+		code += "\tbuffer.resize(buffer.size() + 1)\n"
+		code += fmt.Sprintf("\tbuffer.encode_u8(buffer.size() - 1, %s)\n", name)
+	case "int16":
+		code += "\tbuffer.resize(buffer.size() + 2)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s16(buffer.size() - 2, %s)\n", name)
+	case "uint16":
+		code += "\tbuffer.resize(buffer.size() + 2)\n"
+		code += fmt.Sprintf("\tbuffer.encode_u16(buffer.size() - 2, %s)\n", name)
+	case "int32":
+		code += "\tbuffer.resize(buffer.size() + 4)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s32(buffer.size() - 4, %s)\n", name)
+	case "uint32":
+		code += "\tbuffer.resize(buffer.size() + 4)\n"
+		code += fmt.Sprintf("\tbuffer.encode_u32(buffer.size() - 4, %s)\n", name)
+	case "int64":
+		code += "\tbuffer.resize(buffer.size() + 8)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s64(buffer.size() - 8, %s)\n", name)
+	case "uint64":
+		code += "\tbuffer.resize(buffer.size() + 8)\n"
+		code += fmt.Sprintf("\tbuffer.encode_u64(buffer.size() - 8, %s)\n", name)
+	case "float32":
+		code += "\tbuffer.resize(buffer.size() + 4)\n"
+		code += fmt.Sprintf("\tbuffer.encode_float(buffer.size() - 4, %s)\n", name)
+	case "float64":
+		code += "\tbuffer.resize(buffer.size() + 8)\n"
+		code += fmt.Sprintf("\tbuffer.encode_double(buffer.size() - 8, %s)\n", name)
+	case "bool":
+		code += fmt.Sprintf("\tbuffer.append_bool(%s)\n", name)
+	case "byte":
+		code += fmt.Sprintf("\tbuffer.append(%s)\n", name)
+	case "string":
+		code += fmt.Sprintf("\tvar %s_bytes = %s.to_utf8_buffer()\n", name, name)
+		code += "\tbuffer.resize(buffer.size() + 4)\n"
+		code += fmt.Sprintf("\tbuffer.encode_s32(buffer.size() - 4, len(%s_bytes))\n", name)
+		code += fmt.Sprintf("\tbuffer.append_array(%s_bytes)\n", name)
+	default:
+		if isArrayType(typeStr) {
+			innerType := typeStr[2:]
+			code += "\tbuffer.resize(buffer.size() + 4)\n"
+			code += fmt.Sprintf("\tbuffer.encode_s32(buffer.size() - 4, len(%s))\n", name)
+			code += fmt.Sprintf("\tfor v in %s:\n", name)
+			if isCustomType(innerType, classes) {
+				code += "\t\tvar v_bytes = v.encode_binary()\n"
+				code += "\t\tbuffer.resize(buffer.size() + 4)\n"
+				code += "\t\tbuffer.encode_s32(buffer.size() - 4, len(v_bytes))\n"
+				code += "\t\tbuffer.append_array(v_bytes)\n"
+			} else {
+				switch innerType {
+				case "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
+					code += "\t\tbuffer.append(v)\n"
+				case "float32", "float64":
+					code += "\t\tbuffer.append_float(v)\n"
+				case "bool":
+					code += "\t\tbuffer.append_bool(v)\n"
+				case "byte":
+					code += "\t\tbuffer.append(v)\n"
+				case "string":
+					code += "\t\tvar v_bytes = v.to_utf8_buffer()\n"
+					code += "\t\tbuffer.resize(buffer.size() + 4)\n"
+					code += "\t\tbuffer.encode_s32(buffer.size() - 4, len(v_bytes))\n"
+					code += "\t\tbuffer.append_array(v_bytes)\n"
+				}
+			}
+		}
+	}
+	return code
+}

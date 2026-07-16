@@ -1,0 +1,441 @@
+package protocol
+
+import "strings"
+
+func (this *ProtocolExporter) codingToCSharp() string {
+	var code string
+	code += "using System;\n"
+	code += "using System.IO;\n"
+	code += "using System.Text;\n"
+	code += "using System.Text.Json;\n\n"
+	code += "namespace " + this.PackageName + "\n"
+	code += "{\n"
+
+	for _, class := range this.Classes {
+		code += "public class " + class.Name + "\n"
+		code += "{\n"
+
+		for _, field := range class.ToIR(this.Classes) {
+			attr := field.AsAttribute()
+			var name = getValueNameFromLable(attr.Label)
+			code += "public "
+			switch attr.Type {
+			case "int8":
+				code += "sbyte "
+			case "uint8":
+				code += "byte "
+			case "int16":
+				code += "Int16 "
+			case "uint16":
+				code += "UInt16 "
+			case "int32":
+				code += "Int32 "
+			case "uint32":
+				code += "UInt32 "
+			case "int64":
+				code += "Int64 "
+			case "uint64":
+				code += "UInt64 "
+			case "float32":
+				code += "float "
+			case "float64":
+				code += "double "
+			case "bool":
+				code += "bool "
+			case "byte":
+				code += "byte "
+			case "string":
+				code += "string "
+			case "[]int8":
+				code += "sbyte[] "
+			case "[]uint8":
+				code += "byte[] "
+			case "[]int16":
+				code += "Int16[] "
+			case "[]uint16":
+				code += "UInt16[] "
+			case "[]int32":
+				code += "Int32[] "
+			case "[]uint32":
+				code += "UInt32[] "
+			case "[]int64":
+				code += "Int64[] "
+			case "[]uint64":
+				code += "UInt64[] "
+			case "[]float32":
+				code += "float[] "
+			case "[]float64":
+				code += "double[] "
+			case "[]bool":
+				code += "bool[] "
+			case "[]byte":
+				code += "byte[] "
+			case "[]string":
+				code += "string[] "
+			default:
+				var attribute = ""
+				if strings.Index(attr.Type, "[]") > -1 {
+					attribute = attr.Type[2:] + "[]"
+				} else {
+					attribute = attr.Type
+				}
+				code += attribute + " "
+			}
+			code += name + ";\n"
+		}
+
+		code += "    public " + class.Name + "()\n"
+		code += "    {\n"
+		for _, field := range class.ToIR(this.Classes) {
+			attr := field.AsAttribute()
+			var name = getValueNameFromLable(attr.Label)
+			switch attr.Type {
+			case "int8":
+				code += name + " = 0;\n"
+			case "uint8":
+				code += name + " = 0;\n"
+			case "int16":
+				code += name + " = 0;\n"
+			case "uint16":
+				code += name + " = 0;\n"
+			case "int32":
+				code += name + " = 0;\n"
+			case "uint32":
+				code += name + " = 0;\n"
+			case "int64":
+				code += name + " = 0;\n"
+			case "uint64":
+				code += name + " = 0;\n"
+			case "float32":
+				code += name + " = 0;\n"
+			case "float64":
+				code += name + " = 0;\n"
+			case "bool":
+				code += name + " = false;\n"
+			case "byte":
+				code += name + " = 0;\n"
+			case "string":
+				code += name + " = \"\";\n"
+			default:
+				if strings.Index(attr.Type, "[]") > -1 {
+					var at = attr.Type[2:]
+					switch at {
+					case "int8":
+						code += name + " = new sbyte[]{};\n"
+					case "uint8":
+						code += name + " = new byte[]{};\n"
+					case "int16":
+						code += name + " = new Int16[]{};\n"
+					case "uint16":
+						code += name + " = new UInt16[]{};\n"
+					case "int32":
+						code += name + " = new Int32[]{};\n"
+					case "uint32":
+						code += name + " = new UInt32[]{};\n"
+					case "int64":
+						code += name + " = new Int64[]{};\n"
+					case "uint64":
+						code += name + " = new UInt64[]{};\n"
+					case "float32":
+						code += name + " = new float[]{};\n"
+					case "float64":
+						code += name + " = new double[]{};\n"
+					case "bool":
+						code += name + " = new bool[]{};\n"
+					case "byte":
+						code += name + " = new byte[]{};\n"
+					case "string":
+						code += name + " = new string[]{};\n"
+					default:
+						code += name + " = new " + at + "[]{};\n"
+					}
+				} else {
+					code += name + " = new " + attr.Type + "();\n"
+				}
+			}
+		}
+		code += "    }\n"
+
+		code += "    public void Decoder(byte[] data)\n"
+		code += "    {\n"
+		code += "        if (data == null || data.Length == 0) return;\n"
+		code += "        if (Encoding.Default.GetString(new byte[] { data[0] }) == \"{\")\n"
+		code += "        {\n"
+		code += "            var protocol = JsonSerializer.Deserialize<" + class.Name + ">(Encoding.Default.GetString(data));\n"
+		for _, field := range class.ToIR(this.Classes) {
+			attr := field.AsAttribute()
+			var name = getValueNameFromLable(attr.Label)
+			code += name + " = protocol." + name + ";\n"
+		}
+		code += "        }\n"
+		code += "    	else\n"
+		code += "    	{\n"
+		code += "            MemoryStream steam = new MemoryStream(data);\n"
+		code += "            BinaryReader reader = new BinaryReader(steam);\n"
+		for _, field := range class.ToIR(this.Classes) {
+			attr := field.AsAttribute()
+			var name = getValueNameFromLable(attr.Label)
+			switch attr.Type {
+			case "int8":
+				code += name + " = reader.ReadSByte();\n"
+			case "uint8":
+				code += name + " = reader.ReadByte();\n"
+			case "int16":
+				code += name + " = reader.ReadInt16();\n"
+			case "uint16":
+				code += name + " = reader.ReadUInt16();\n"
+			case "int32":
+				code += name + " = reader.ReadInt32();\n"
+			case "uint32":
+				code += name + " = reader.ReadUInt32();\n"
+			case "int64":
+				code += name + " = reader.ReadInt64();\n"
+			case "uint64":
+				code += name + " = reader.ReadUInt64();\n"
+			case "float32":
+				code += name + " = reader.ReadSingle();\n"
+			case "float64":
+				code += name + " = reader.ReadDouble();\n"
+			case "bool":
+				code += name + " = reader.ReadBoolean();\n"
+			case "byte":
+				code += name + " = reader.ReadByte();\n"
+			case "string":
+				code += "            var " + name + "Lenght = reader.ReadInt32();\n"
+				code += "            var " + name + "Reader = new BinaryReader(new MemoryStream(reader.ReadBytes(" + name + "Lenght)));\n"
+				code += "            this." + name + " = " + name + "Reader.ReadString();\n"
+			default:
+				if strings.Index(attr.Type, "[]") > -1 {
+					var objectType = attr.Type[2:]
+					code += "            var " + name + "Count = reader.ReadInt32();\n"
+					switch objectType {
+					case "int8":
+						code += "            this." + name + " = new sbyte[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadSByte();\n"
+					case "uint8":
+						code += "            this." + name + " = new byte[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadByte();\n"
+					case "int16":
+						code += "            this." + name + " = new Int16[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadInt16();\n"
+					case "uint16":
+						code += "            this." + name + " = new UInt16[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadUInt16();\n"
+					case "int32":
+						code += "            this." + name + " = new Int32[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadInt32();\n"
+					case "uint32":
+						code += "            this." + name + " = new UInt32[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadUInt32();\n"
+					case "int64":
+						code += "            this." + name + " = new Int64[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadInt64();\n"
+					case "uint64":
+						code += "            this." + name + " = new UInt64[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadUInt64();\n"
+					case "float32":
+						code += "            this." + name + " = new float[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadSingle();\n"
+					case "float64":
+						code += "            this." + name + " = new double[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadDouble();\n"
+					case "bool":
+						code += "            this." + name + " = new bool[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadBoolean();\n"
+					case "byte":
+						code += "            this." + name + " = new byte[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "this." + name + "[i] = reader.ReadByte();\n"
+					case "string":
+						code += "            this." + name + " = new string[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "                var l = reader.ReadInt32();\n"
+						code += "                var r = new BinaryReader(new MemoryStream(reader.ReadBytes(l)));\n"
+						code += "                this." + name + "[i] = r.ReadString();\n"
+					default:
+						code += "            this." + name + " = new " + objectType + "[" + name + "Count];\n"
+						code += "            for (var i = 0; i < " + name + "Count; i++)\n"
+						code += "            {\n"
+						code += "                var l = reader.ReadInt32();\n"
+						code += "                var d = reader.ReadBytes(l);\n"
+						code += "                this." + name + "[i] = new " + objectType + "();\n"
+						code += "                this." + name + "[i].Decoder(d);\n"
+					}
+					code += "            }\n"
+				} else {
+					for _, class := range this.Classes {
+						if class.Name == attr.Type {
+							code += "            var " + name + "Lenght = reader.ReadInt32();\n"
+							code += "            var " + name + "Byte = reader.ReadBytes(" + name + "Lenght);\n"
+							code += "            this." + name + " = new " + attr.Type + "();\n"
+							code += "            this." + name + ".Decoder(" + name + "Byte);\n"
+						}
+					}
+				}
+			}
+		}
+		code += "    	}\n"
+		code += "    }\n"
+
+		code += "    public byte[] EncodeBinary()\n"
+		code += "    {\n"
+		code += "        MemoryStream steam = new MemoryStream();\n"
+		code += "        BinaryWriter writer = new BinaryWriter(steam);\n"
+		for _, field := range class.ToIR(this.Classes) {
+			attr := field.AsAttribute()
+			var name = getValueNameFromLable(attr.Label)
+			switch attr.Type {
+			case "int8":
+				code += "writer.Write(this." + name + ");\n"
+			case "uint8":
+				code += "writer.Write(this." + name + ");\n"
+			case "int16":
+				code += "writer.Write(this." + name + ");\n"
+			case "uint16":
+				code += "writer.Write(this." + name + ");\n"
+			case "int32":
+				code += "writer.Write(this." + name + ");\n"
+			case "uint32":
+				code += "writer.Write(this." + name + ");\n"
+			case "int64":
+				code += "writer.Write(this." + name + ");\n"
+			case "uint64":
+				code += "writer.Write(this." + name + ");\n"
+			case "float32":
+				code += "writer.Write(this." + name + ");\n"
+			case "float64":
+				code += "writer.Write(this." + name + ");\n"
+			case "bool":
+				code += "writer.Write(this." + name + ");\n"
+			case "byte":
+				code += "writer.Write(this." + name + ");\n"
+			case "string":
+				code += "        var " + name + "Writer = new BinaryWriter(new MemoryStream());\n"
+				code += "        " + name + "Writer.Write(this." + name + ");\n"
+				code += "        writer.Write((Int32)" + name + "Writer.BaseStream.Length);\n"
+				code += "        writer.Write(this." + name + ");\n"
+			default:
+				if strings.Index(attr.Type, "[]") > -1 {
+					code += "writer.Write((Int32)this." + name + ".Length);\n"
+					var objectType = attr.Type[2:]
+					switch objectType {
+					case "int8":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "uint8":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "int16":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "uint16":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "int32":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "uint32":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "int64":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "uint64":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "float32":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "float64":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "bool":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "byte":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					case "string":
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            var w = new BinaryWriter(new MemoryStream());\n"
+						code += "            w.Write(this." + name + "[i]);\n"
+						code += "            writer.Write((Int32)w.BaseStream.Length);\n"
+						code += "            writer.Write(this." + name + "[i]);\n"
+						code += "}\n"
+					default:
+						code += "for (var i = 0; i < this." + name + ".Length; i++)\n"
+						code += "{\n"
+						code += "            var array = this." + name + "[i].EncodeBinary();\n"
+						code += "            writer.Write((Int32)array.Length);\n"
+						code += "            writer.Write(array);\n"
+						code += "}\n"
+					}
+				} else {
+					code += "        var " + name + "ByteArray = this." + name + ".EncodeBinary();\n"
+					code += "        writer.Write((Int32)" + name + "ByteArray.Length);\n"
+					code += "        writer.Write(" + name + "ByteArray);\n"
+				}
+			}
+		}
+		code += "    return steam.ToArray();\n"
+		code += "    }\n"
+
+		code += "    public byte[] EncodeJson()\n"
+		code += "    {\n"
+		code += "        return Encoding.Default.GetBytes(JsonSerializer.Serialize(this));\n"
+		code += "    }\n"
+
+		code += "}\n"
+	}
+	code += "}\n"
+	return code
+}

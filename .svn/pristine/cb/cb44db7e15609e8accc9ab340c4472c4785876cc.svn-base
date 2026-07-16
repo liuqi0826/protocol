@@ -1,0 +1,40 @@
+class_name ProtocolServerCommand
+extends RefCounted
+var Command: int
+var Value: String
+
+func _init():
+	Command = 0
+	Value = ""
+
+func decode(data):
+	var pointer = 0
+	var json = JSON.new()
+	if json.parse(data.get_string_from_utf8()) == 0:
+		var obj = json.data
+		Command = obj["Command"]
+		Value = obj["Value"]
+		return
+	Command = data.get_32(pointer)
+	pointer += 4
+	var Value_len = data.get_32(pointer)
+	pointer += 4
+	Value = data.slice(pointer, pointer + Value_len).get_string_from_utf8()
+	pointer += Value_len
+
+func encode_json() -> String:
+	var obj = {}
+	obj["Command"] = Command
+	obj["Value"] = Value
+	return JSON.stringify(obj)
+
+func encode_binary() -> PackedByteArray:
+	var buffer = PackedByteArray()
+	buffer.resize(buffer.size() + 2)
+	buffer.encode_u16(buffer.size(), Command)
+	var Value_bytes = Value.to_utf8_buffer()
+	buffer.resize(buffer.size() + 4)
+	buffer.encode_s32(buffer.size(), len(Value_bytes))
+	buffer.append_array(Value_bytes)
+	return buffer
+

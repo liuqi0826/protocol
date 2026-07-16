@@ -1,0 +1,83 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"protocol"
+)
+
+// .\protocol.exe -i source/source.go -o export/go/protocol.go -t go
+// .\protocol.exe -i source/source.go -o export/csharp/protocol.cs -t csharp
+// .\protocol.exe -i source/source.go -o export/gdscript/ -t gdscript
+
+func main() {
+	var input, output, target string
+	var help bool
+	for idx, arg := range os.Args {
+		switch arg {
+		case "-i":
+			if len(os.Args) > idx+1 {
+				input = os.Args[idx+1]
+			}
+		case "-o":
+			if len(os.Args) > idx+1 {
+				output = os.Args[idx+1]
+			}
+		case "-t":
+			if len(os.Args) > idx+1 {
+				target = os.Args[idx+1]
+			}
+		case "-h":
+			help = true
+		}
+	}
+
+	if help {
+		fmt.Println("帮助")
+		return
+	}
+	if input != "" && output != "" && target != "" {
+		var err error
+		var exporter = &protocol.ProtocolExporter{}
+		err = exporter.Load(input)
+		if err != nil {
+			fmt.Println(err)
+		}
+		switch target {
+		case "go":
+			err = exporter.Export(output, protocol.GO)
+			if err != nil {
+				fmt.Println(err)
+			}
+		case "csharp":
+			err = exporter.Export(output, protocol.CSHARP)
+			if err != nil {
+				fmt.Println(err)
+			}
+		case "gdscript":
+			err = exporter.Export(output, protocol.GD_SCRIPT)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	} else {
+		var err error
+		var exporter = &protocol.ProtocolExporter{}
+		err = exporter.Load("source/source.go")
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = exporter.Export("export/go/protocol.go", protocol.GO)
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = exporter.Export("export/csharp/Protocol.cs", protocol.CSHARP)
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = exporter.Export("export/gdscript/", protocol.GD_SCRIPT)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}

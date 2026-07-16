@@ -1,0 +1,304 @@
+package protocol
+
+import "strings"
+
+func (this *ProtocolExporter) codingToGolang() string {
+	var code string
+	code += "package " + this.PackageName
+	code += `
+		import (
+			"bytes"
+			"encoding/binary"
+			"encoding/json"
+		)
+		`
+
+	for _, class := range this.Classes {
+		code += "type " + class.Name + " struct {\n"
+		for _, attr := range class.Attributes {
+			code += attr.Name + " " + attr.Type + " " + attr.Label + "\n"
+		}
+		code += "}\n"
+
+		code += "func (this *" + class.Name + ") Decode(data []byte) {\n"
+		code += "	var head = string(data[0])\n"
+		code += "	if head == \"{\" {\n"
+		code += "		json.Unmarshal(data, this)\n"
+		code += "	} else {\n"
+		code += "	var pointer int\n"
+		code += "	var buffer *bytes.Buffer\n"
+		for _, attr := range class.Attributes {
+			switch attr.Type {
+			case "int8":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 1\n"
+			case "uint8":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 1\n"
+			case "int16":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+2])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 2\n"
+			case "uint16":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+2])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 2\n"
+			case "int32":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 4\n"
+			case "uint32":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 4\n"
+			case "int64":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+8])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 8\n"
+			case "uint64":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+8])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 8\n"
+			case "float32":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 4\n"
+			case "float64":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+8])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 8\n"
+			case "bool":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 1\n"
+			case "byte":
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &this." + attr.Name + ")\n"
+				code += "	pointer += 1\n"
+			case "string":
+				code += "	var " + attr.Name + "Lenght int32\n"
+				code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+				code += "	binary.Read(buffer, binary.LittleEndian, &" + attr.Name + "Lenght)\n"
+				code += "	pointer += 4\n"
+				code += "	this." + attr.Name + " = string(data[pointer : pointer+int(" + attr.Name + "Lenght)])\n"
+				code += "	pointer += int(" + attr.Name + "Lenght)\n"
+			default:
+				if strings.Index(attr.Type, "[]") > -1 {
+					code += "	var " + attr.Name + "Count int32\n"
+					code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+					code += "	binary.Read(buffer, binary.LittleEndian, &" + attr.Name + "Count)\n"
+					code += "	pointer += 4\n"
+					code += "	for i := 0; i < int(" + attr.Name + "Count); i++ {\n"
+					var cls = attr.Type[2:]
+					switch cls {
+					case "int8":
+						code += "	var value int8\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 1\n"
+					case "uint8":
+						code += "	var value uint8\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 1\n"
+					case "int16":
+						code += "	var value int16\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+2])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 2\n"
+					case "uint16":
+						code += "	var value uint16\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+2])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 2\n"
+					case "int32":
+						code += "	var value int32\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 4\n"
+					case "uint32":
+						code += "	var value uint32\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 4\n"
+					case "int64":
+						code += "	var value int64\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+8])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 8\n"
+					case "uint64":
+						code += "	var value uint64\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+8])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 8\n"
+					case "float32":
+						code += "	var value float32\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 4\n"
+					case "float64":
+						code += "	var value float64\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+8])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 8\n"
+					case "bool":
+						code += "	var value bool\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 1\n"
+					case "byte":
+						code += "	var value byte\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+1])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &value)\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+						code += "	pointer += 1\n"
+					case "string":
+						code += "	var lenght int32\n"
+						code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+						code += "	binary.Read(buffer, binary.LittleEndian, &lenght)\n"
+						code += "	pointer += 4\n"
+						code += "	this." + attr.Name + " = append(this." + attr.Name + ", string(data[pointer : pointer+int(lenght)]))\n"
+						code += "	pointer += int(lenght)\n"
+					default:
+						for _, class := range this.Classes {
+							if class.Name == attr.Type[2:] {
+								code += "	var lenght int32\n"
+								code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+								code += "	binary.Read(buffer, binary.LittleEndian, &lenght)\n"
+								code += "	pointer += 4\n"
+								code += "	var value = " + class.Name + "{}\n"
+								code += "	value.Decode(data[pointer : pointer+int(lenght)])\n"
+								code += "	this." + attr.Name + " = append(this." + attr.Name + ", value)\n"
+								code += "	pointer += int(lenght)\n"
+							}
+						}
+					}
+					code += "	}\n"
+				} else {
+					code += "	var " + attr.Name + "Lenght int32\n"
+					code += "	buffer = bytes.NewBuffer(data[pointer : pointer+4])\n"
+					code += "	binary.Read(buffer, binary.LittleEndian, &" + attr.Name + "Lenght)\n"
+					code += "	pointer += 4\n"
+					code += "	this." + attr.Name + " = " + attr.Type + "{}\n"
+					code += "	this." + attr.Name + ".Decode(data[pointer : pointer+int(" + attr.Name + "Lenght)])\n"
+					code += "	pointer += int(" + attr.Name + "Lenght)\n"
+				}
+			}
+		}
+		code += "	}\n"
+		code += "}\n"
+
+		code += "func (this *" + class.Name + ") EncodeBinary() (data []byte) {\n"
+		code += "	var buffer = bytes.NewBuffer([]byte{})\n"
+		for _, attr := range class.Attributes {
+			switch attr.Type {
+			case "int8":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "uint8":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "int16":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "uint16":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "int32":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "uint32":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "int64":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "uint64":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "float32":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "float64":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "bool":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "byte":
+				code += "	binary.Write(buffer, binary.LittleEndian, this." + attr.Name + ")\n"
+			case "string":
+				code += "	var " + attr.Name + "Byte = []byte(this." + attr.Name + ")\n"
+				code += "	var " + attr.Name + "Lenght = int32(len(" + attr.Name + "Byte))\n"
+				code += "	binary.Write(buffer, binary.LittleEndian, " + attr.Name + "Lenght)\n"
+				code += "	binary.Write(buffer, binary.LittleEndian, " + attr.Name + "Byte)\n"
+			default:
+				if strings.Index(attr.Type, "[]") > -1 {
+					code += "	var " + attr.Name + "Count = int32(len(this." + attr.Name + "))\n"
+					code += "	binary.Write(buffer, binary.LittleEndian, " + attr.Name + "Count)\n"
+					code += "	for _, i := range this." + attr.Name + " {\n"
+					var cls = attr.Type[2:]
+					switch cls {
+					case "int8":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "uint8":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "int16":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "uint16":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "int32":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "uint32":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "int64":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "uint64":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "float32":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "float64":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "bool":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "byte":
+						code += "	binary.Write(buffer, binary.LittleEndian, i)\n"
+					case "string":
+						code += "	var b = []byte(i)\n"
+						code += "	var l = int32(len(b))\n"
+						code += "	binary.Write(buffer, binary.LittleEndian, l)\n"
+						code += "	binary.Write(buffer, binary.LittleEndian, b)\n"
+					default:
+						for _, c := range this.Classes {
+							if c.Name == cls {
+								code += "	var b = i.EncodeBinary()\n"
+								code += "	var l = int32(len(b))\n"
+								code += "	binary.Write(buffer, binary.LittleEndian, l)\n"
+								code += "	binary.Write(buffer, binary.LittleEndian, b)\n"
+							}
+						}
+					}
+					code += "	}\n"
+				} else {
+					code += "	var " + attr.Name + "Byte = this." + attr.Name + ".EncodeBinary()\n"
+					code += "	var " + attr.Name + "Lenght = int32(len(" + attr.Name + "Byte))\n"
+					code += "	binary.Write(buffer, binary.LittleEndian, " + attr.Name + "Lenght)\n"
+					code += "	binary.Write(buffer, binary.LittleEndian, " + attr.Name + "Byte)\n"
+				}
+			}
+		}
+		code += "	data = buffer.Bytes()\n"
+		code += "	return\n"
+		code += "}\n"
+
+		code += "	func (this *" + class.Name + ") EncodeJson() (data []byte) {\n"
+		code += "		data, _ = json.Marshal(this)\n"
+		code += "		return\n"
+		code += "	}\n"
+
+		index++
+	}
+	return code
+}
